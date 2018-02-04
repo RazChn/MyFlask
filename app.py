@@ -46,7 +46,7 @@ class RegisterForm(Form):
     email = StringField('Email', [validators.length(min=6, max=50)])
     password = PasswordField('Password', [
         validators.data_required(),
-        validators.equal_to('confirm',message='Passwords Do NOT Match')
+        validators.equal_to('confirm', message='Passwords Do NOT Match')
     ])
     confirm = PasswordField('Confirm Password')
 
@@ -67,13 +67,50 @@ def register():
         # Commit
         mysql.connection.commit()
 
-        #Close Connection
+        # Close Connection
         cur.close()
 
         flash('YOU ARE REGISTERED !', 'success')
         return redirect(url_for('index'))
 
     return render_template('register.html', form=form)
+
+
+# User Login
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        # Get Form Fields
+        username = request.form['username']
+        password_candidate = request.form['password']
+
+        # Cursor
+        cur = mysql.connection.cursor()
+
+        # Get user by username
+        result = cur.execute("SELECT * FROM users where username = %s", [username])
+
+        if result > 0:
+            # Get stored hash
+            data = cur.fetchone()
+            password = data['password']
+
+            # compare pass
+            if sha256_crypt.verify(password_candidate, password):
+                success = 'Logged In !'
+                session['logged_in'] = True
+                session['username'] = username
+                flash('you are logged in', 'success')
+                return redirect(url_for('dashboard'))
+                #return render_template('home.html', success=success)
+            else:
+                error = 'Invalid login'
+                return render_template('login.html', error=error)
+        else:
+            error = 'Username Not Found'
+            return render_template('login.html', error=error)
+    return render_template('login.html')
+
 
 if __name__ == '__main__':
     app.secret_key = 'sercret'
